@@ -42,12 +42,14 @@ def id2address(id):
 
 def create_dir(path):
     addrs = path.split('/')
+    del addrs[0]
     print(addrs)
     path = ''
     for addr in addrs:
         path = os.path.join(path, addr)
         if not os.path.exists(path):
-            os.midir(path)
+            print(path)
+            os.mkdir(path)
 
 
 def resize_image(addr, weight, height):
@@ -129,7 +131,7 @@ def multipart_post_image():
 def get_image(image_id):
     image = image_id.split('.')
     print(len(image))
-    if len(image) != 1 or len(image) != 2:
+    if len(image) != 1 and len(image) != 2:
         return 'invalid request!'
     elif len(image[0]) != 32:
         return 'invalid ID!'

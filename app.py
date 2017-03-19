@@ -40,17 +40,16 @@ def id2address(id):
     return path
 
 
-def create_dir(path):
-    addrs = path.split('/')
-    del addrs[0]
-    print(addrs)
-    path = ''
-    for addr in addrs:
-        path = os.path.join(path, addr)
-        if not os.path.exists(path):
-            print(path)
-            os.mkdir(path)
-
+# def create_dir(path):
+#     addrs = path.split('/')
+#     del addrs[0]
+#     path = '/'
+#     for addr in addrs:
+#         path = os.path.join(path, addr)
+#         if not os.path.exists(path):
+#             os.mkdir(path)
+#             print(path,'is created.')
+#
 
 def resize_image(addr, weight, height):
     im = Image.open(addr)
@@ -119,7 +118,8 @@ def multipart_post_image():
         return 'upload file illegal'
     id = next_id()
     addr = id2address(id)
-    create_dir(addr)
+    os.makedirs(addr)
+    # create_dir(addr)
     file.save(os.path.join(addr, id))
     ret = {'key': id}
     return json.dumps(ret)
@@ -148,11 +148,12 @@ def get_image(image_id):
     if len(image) == 2:
         if image[1] not in ALLOWED_EXTENSIONS:
             return 'invalid format!'
-        else:
-            itype = mtype.split('/')[1]
-            if image[1] != itype:
-                data = transfer_format(data, image[1])
-                mtype = 'image/' + image[1]
+        if image[1] == 'jpg':
+            image[1] = 'jpeg'
+        itype = mtype.split('/')[1]
+        if image[1] != itype:
+            data = transfer_format(data, image[1])
+            mtype = 'image/' + image[1]
     response = make_response(data)
     response.headers['Content-Type'] = mtype
     return response

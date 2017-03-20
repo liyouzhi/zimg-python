@@ -17,7 +17,7 @@ ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
 def next_id():
     # return '%016d%s%s' % (int(time.time() * 10000), uuid.uuid4().hex, '0'*16)
@@ -59,25 +59,32 @@ def resize_image(addr, weight, height):
     if height == 0:
         height = int(weight * h / w)
     out = im.resize((weight, height))
-    ret = io.BytesIO()
-    out.save(ret, im.format)
-    return ret.getvalue()
+    # ret = io.BytesIO()
+    # out.save(ret, im.format)
+    # return ret.getvalue()
+    return out
 
 def crop_image(addr, weight, height):
     im = Image.open(addr) 
     w, h = im.size 
     region = ((w - weight) / 2, (h - height) / 2, (w + weight) / 2, (h + height) / 2) 
     out = im.crop(region) 
-    ret = io.BytesIO() 
-    out.save(ret, im.format) 
-    return ret.getvalue() 
+    # ret = io.BytesIO() 
+    # out.save(ret, im.format) 
+    # return ret.getvalue() 
+    return out
 
-def transfer_format(im_data, im_format):
-    im = Image.open(io.BytesIO(im_data))
-    ret = io.BytesIO()
-    im.save(ret, im_format)
-    return ret.getvalue()
-
+# def transfer_format(im_data, im_format):
+#     im = Image.open(io.BytesIO(im_data))
+#     ret = io.BytesIO()
+#     im.save(ret, im_format)
+#     return ret.getvalue()
+#
+# def transfer_format(im, im_format):
+#     ret = io.BytesIO()
+#     im.save(ret, im_format)
+#     return ret.getvalue()
+#
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -97,6 +104,14 @@ def home():
 @app.route('/images', methods=['POST'])
 def post_image():
     data = request.get_data()
+    if not data:
+        response.status_code = 400
+        return 'upload file not found!'
+    mtype = magic.from_buffer(data, mime=True)
+    im_type = mtype.split('/')
+    if im_type[1] not in ALLOWED_EXTENSIONS:
+        response.status_code = 400
+        return 'invalid image format!'
     id = next_id()
     print('id:', id)
     addr = id2address(id)
@@ -133,27 +148,35 @@ def get_image(image_id):
     print(len(image))
     if len(image) != 1 and len(image) != 2:
         return 'invalid request!'
-    elif len(image[0]) != 32:
+    if len(image[0]) != 32:
         return 'invalid ID!'
+    if len(image) == 2:
+        ntype = image[1]
+        if ntype not in ALLOWED_EXTENSIONS:
+            return 'invalid format!'
+        if ntype == 'jpg':
+            ntype = 'jpeg'
+    else:
+        ntype = ''
     addr = id2address(image[0])
     path = os.path.join(addr, image[0])
-    h = int(request.args.get('h') or 0)
+    h = int(request.args.get('h') or 0) #参数大小的限制？
     w = int(request.args.get('w') or 0)
-    if h or w:
-        data = resize_image(path, w, h)
-    else:
+    if not h and not w and not ntype:
         with open(path, 'rb') as f:
             data = f.read()
-    mtype = magic.from_buffer(data, mime=True)
-    if len(image) == 2:
-        if image[1] not in ALLOWED_EXTENSIONS:
-            return 'invalid format!'
-        if image[1] == 'jpg':
-            image[1] = 'jpeg'
-        itype = mtype.split('/')[1]
-        if image[1] != itype:
-            data = transfer_format(data, image[1])
-            mtype = 'image/' + image[1]
+            mtype = magic.from_buffer(data, mime=True)
+    else:
+        if h or w:
+            im = resize_image(path, w, h)
+            if not ntype:
+                ntype = im.format
+        else:
+            im = Image.open(path)
+        ret = io.BytesIO()
+        im.save(ret, ntype)
+        data = ret.getvalue()
+        mtype = 'image/' + ntype 
     response = make_response(data)
     response.headers['Content-Type'] = mtype
     return response
@@ -161,3 +184,4 @@ def get_image(image_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
+

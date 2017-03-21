@@ -2,24 +2,29 @@
 from collections import OrderedDict
 
 class LRUCache(object):
+
 def __init__(self, capacity):
-    self.capacity = capacity
-    self.cache = OrderedDict()
+    self.__capacity = capacity
+    self.__cache = OrderedDict()
 
 def set(self, key, value):
     try:
-        self.cache.pop(key)
+        self.__cache.pop(key)
     except KeyError:
-        if len(self.cache) >= self.capacity:
-            self.cache.popitem(last=False)
-    self.cache[key] = value
+        if len(self.cache) >= self.__capacity:
+            self.__cache.popitem(last=False)
+    self.__cache[key] = value
 
 def get(self, key):
     try:
-        value = self.cache.pop(key)
-        self.cache[key] = value
+        value = self.__cache.pop(key)
+        self.__cache[key] = value
         return value
     except KeyError:
         return -1
+
+def clear(self):
+    self.__cache.clear()
+
 
 

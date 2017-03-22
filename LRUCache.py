@@ -1,6 +1,6 @@
 # -*- coding:utf-8 -*-
 from collections import OrderedDict
-from time
+import time
 
 class LRUCache(object):
 
@@ -15,20 +15,22 @@ class LRUCache(object):
         try:
             self.__delete(key)
         except KeyError:
-            if len(self.cache) >= self.__capacity:
+            if len(self.__cache) >= self.capacity:
                 k, v = self.__cache.popitem(last=False)
                 del self.__expiration_time[k]
         self.__cache[key] = value
         t = int(time.time())
-        self.__expiration_time[key] = t + TTL 
+        self.__expiration_time[key] = t + self.TTL 
+        print('set cache:', key)
 
     def get(self, key):
         try:
             value = self.__cache.pop(key)
             self.__cache[key] = value
+            print('get cache:',key)
             return value
         except KeyError:
-            return -1 
+            raise KeyError
 
     def clear(self):
         self.__cache.clear()

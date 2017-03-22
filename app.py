@@ -12,12 +12,15 @@ from flask import send_from_directory, make_response
 from werkzeug.utils import secure_filename
 from PIL import Image
 
+from LRUCache import LRUCache
+
 UPLOAD_FOLDER = '/Users/liyouzhi/dev/python/zimg-python/image_storage'
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024#用户上传文件大小的上限
+cache = LRUCache()
 
 def next_id():
     # return '%016d%s%s' % (int(time.time() * 10000), uuid.uuid4().hex, '0'*16)
@@ -84,7 +87,10 @@ def crop_image(addr, weight, height):
 #     ret = io.BytesIO()
 #     im.save(ret, im_format)
 #     return ret.getvalue()
-#
+
+def get_cache_key(id, w, h, format):
+    return id + ':' + str(w) + ':' + str(h) + ':' + format
+
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -162,21 +168,28 @@ def get_image(image_id):
     path = os.path.join(addr, image[0])
     h = int(request.args.get('h') or 0) #参数大小的限制？
     w = int(request.args.get('w') or 0)
-    if not h and not w and not ntype:
-        with open(path, 'rb') as f:
-            data = f.read()
+    cache_id = get_cache_key(image[0], w, h, ntype)
+    try:
+        data = cache.get(cache_id)
+        if data:
             mtype = magic.from_buffer(data, mime=True)
-    else:
-        if h or w:
-            im = resize_image(path, w, h)
-            if not ntype:
-                ntype = im.format
+    except KeyError:
+        if not h and not w and not ntype:
+            with open(path, 'rb') as f:
+                data = f.read()
+                mtype = magic.from_buffer(data, mime=True)
         else:
-            im = Image.open(path)
-        ret = io.BytesIO()
-        im.save(ret, ntype)
-        data = ret.getvalue()
-        mtype = 'image/' + ntype 
+            if h or w:
+                im = resize_image(path, w, h)
+                if not ntype:
+                    ntype = im.format
+            else:
+                im = Image.open(path)
+            ret = io.BytesIO()
+            im.save(ret, ntype)
+            data = ret.getvalue()
+            mtype = 'image/' + ntype 
+        cache.set(cache_id, data)
     response = make_response(data)
     response.headers['Content-Type'] = mtype
     return response
@@ -184,4 +197,3 @@ def get_image(image_id):
 
 if __name__ == '__main__':
     app.run(debug=True)
-

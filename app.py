@@ -15,12 +15,13 @@ from PIL import Image
 from LRUCache import LRUCache
 
 UPLOAD_FOLDER = '/Users/liyouzhi/dev/python/zimg-python/image_storage'
-ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif'])
+ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif', 'webp'])
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024#用户上传文件大小的上限
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  #用户上传文件大小的上限
 cache = LRUCache()
+
 
 def next_id():
     # return '%016d%s%s' % (int(time.time() * 10000), uuid.uuid4().hex, '0'*16)
@@ -54,6 +55,7 @@ def id2address(id):
 #             print(path,'is created.')
 #
 
+
 def resize_image(addr, weight, height):
     im = Image.open(addr)
     w, h = im.size
@@ -67,15 +69,18 @@ def resize_image(addr, weight, height):
     # return ret.getvalue()
     return out
 
+
 def crop_image(addr, weight, height):
-    im = Image.open(addr) 
-    w, h = im.size 
-    region = ((w - weight) / 2, (h - height) / 2, (w + weight) / 2, (h + height) / 2) 
-    out = im.crop(region) 
+    im = Image.open(addr)
+    w, h = im.size
+    region = ((w - weight) / 2, (h - height) / 2, (w + weight) / 2,
+              (h + height) / 2)
+    out = im.crop(region)
     # ret = io.BytesIO() 
     # out.save(ret, im.format) 
     # return ret.getvalue() 
     return out
+
 
 # def transfer_format(im_data, im_format):
 #     im = Image.open(io.BytesIO(im_data))
@@ -88,8 +93,10 @@ def crop_image(addr, weight, height):
 #     im.save(ret, im_format)
 #     return ret.getvalue()
 
+
 def get_cache_key(id, w, h, format):
     return id + ':' + str(w) + ':' + str(h) + ':' + format
+
 
 @app.route('/')
 def home():
@@ -157,7 +164,7 @@ def get_image(image_id):
     if len(image[0]) != 32:
         return 'invalid ID!'
     if len(image) == 2:
-        ntype = image[1]
+        ntype = image[1].lower()
         if ntype not in ALLOWED_EXTENSIONS:
             return 'invalid format!'
         if ntype == 'jpg':
@@ -166,14 +173,11 @@ def get_image(image_id):
         ntype = ''
     addr = id2address(image[0])
     path = os.path.join(addr, image[0])
-    h = int(request.args.get('h') or 0) #参数大小的限制？
+    h = int(request.args.get('h') or 0)  #参数大小的限制？
     w = int(request.args.get('w') or 0)
     cache_id = get_cache_key(image[0], w, h, ntype)
-    try:
-        data = cache.get(cache_id)
-        if data:
-            mtype = magic.from_buffer(data, mime=True)
-    except KeyError:
+    data = cache.get(cache_id)
+    if data == -1:
         if not h and not w and not ntype:
             with open(path, 'rb') as f:
                 data = f.read()
@@ -182,14 +186,16 @@ def get_image(image_id):
             if h or w:
                 im = resize_image(path, w, h)
                 if not ntype:
-                    ntype = im.format
+                    ntype ='webp' 
             else:
                 im = Image.open(path)
             ret = io.BytesIO()
             im.save(ret, ntype)
             data = ret.getvalue()
-            mtype = 'image/' + ntype 
+            mtype = 'image/' + ntype
         cache.set(cache_id, data)
+    else:
+        mtype = magic.from_buffer(data, mime=True)
     response = make_response(data)
     response.headers['Content-Type'] = mtype
     return response

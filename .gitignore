@@ -1,5 +1,6 @@
 #app
 image_storage/
+test_id2addr.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

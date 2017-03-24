@@ -11,6 +11,7 @@ from flask import request
 from flask import send_from_directory, make_response
 from werkzeug.utils import secure_filename
 from PIL import Image
+import memcache
 
 from LRUCache import LRUCache
 
@@ -20,7 +21,8 @@ ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif', 'webp'])
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  #用户上传文件大小的上限
-cache = LRUCache()
+# cache = LRUCache() #use LRUCache
+cache = memcache.Client(['127.0.0.1:11211'], debug = 1)
 
 
 def next_id():
@@ -176,8 +178,8 @@ def get_image(image_id):
     h = int(request.args.get('h') or 0)  #参数大小的限制？
     w = int(request.args.get('w') or 0)
     cache_id = get_cache_key(image[0], w, h, ntype)
-    data = cache.get(cache_id)
-    if data == -1:
+    data = cache.get(cache_id) 
+    if data == None:
         if not h and not w and not ntype:
             with open(path, 'rb') as f:
                 data = f.read()

@@ -30,7 +30,7 @@ class LRUCache(object):
             print('get cache:', key)
             return value
         else:
-            return -1
+            return None 
 
     def clear(self):
         self.__cache.clear()

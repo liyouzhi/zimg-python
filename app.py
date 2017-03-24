@@ -12,6 +12,7 @@ from flask import send_from_directory, make_response
 from werkzeug.utils import secure_filename
 from PIL import Image
 import memcache
+import redis
 
 from LRUCache import LRUCache
 
@@ -22,7 +23,8 @@ app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  #用户上传文件大小的上限
 # cache = LRUCache() #use LRUCache
-cache = memcache.Client(['127.0.0.1:11211'], debug = 1)
+# cache = memcache.Client(['127.0.0.1:11211'], debug = 1)
+cache = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
 
 
 def next_id():

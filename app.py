@@ -5,6 +5,7 @@ import os
 import magic
 import json
 import io
+import math
 
 from flask import Flask, render_template
 from flask import request
@@ -34,7 +35,7 @@ def next_id():
 
 def allowed_file(filename):
     return '.' in filename and \
-            filename.rsplit('.', 1)[1] in ALLOWED_EXTENSIONS
+            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 def id2address(id):
@@ -60,30 +61,38 @@ def id2address(id):
 #
 
 
-def resize_image(addr, weight, height):
+def resize_image(addr, width, height):
     im = Image.open(addr)
     w, h = im.size
-    if weight == 0:
-        weight = int(height * w / h)
+    if width == 0:
+        width = int(height * w / h)
     if height == 0:
-        height = int(weight * h / w)
-    out = im.resize((weight, height))
+        height = int(width * h / w)
+    out = im.resize((width, height))
     # ret = io.BytesIO()
     # out.save(ret, im.format)
     # return ret.getvalue()
     return out
 
 
-def crop_image(addr, weight, height):
+def resize_image2(im, width, height):
+    w, h = im.size
+    f = w / h
+    if width == 0:
+        width = math.floor(height * f)
+        if width == 0: width = 1
+    if height == 0:
+        height = math.floor(width / f)
+        if height == 0: height = 1
+    return im.resize((width, height))
+
+
+def crop_image(addr, width, height):
     im = Image.open(addr)
     w, h = im.size
-    region = ((w - weight) / 2, (h - height) / 2, (w + weight) / 2,
+    region = ((w - width) / 2, (h - height) / 2, (w + width) / 2,
               (h + height) / 2)
-    out = im.crop(region)
-    # ret = io.BytesIO() 
-    # out.save(ret, im.format) 
-    # return ret.getvalue() 
-    return out
+    return im.crop(region)
 
 
 # def transfer_format(im_data, im_format):
@@ -98,8 +107,9 @@ def crop_image(addr, weight, height):
 #     return ret.getvalue()
 
 
-def get_cache_key(id, w, h, format):
-    return id + ':' + str(w) + ':' + str(h) + ':' + format
+# key version
+def gen_cache_key(id, w, h, format):
+    return 'ick:v0:' + id + ':' + str(w) + ':' + str(h) + ':' + format
 
 
 @app.route('/')
@@ -126,13 +136,17 @@ def post_image():
         return 'upload file not found!'
     mtype = magic.from_buffer(data, mime=True)
     im_type = mtype.split('/')
+    if len(im_type) < 2:
+        response.status_code = 400
+        return 'illegal mimetype!'
     if im_type[1] not in ALLOWED_EXTENSIONS:
         response.status_code = 400
         return 'invalid image format!'
     id = next_id()
     print('id:', id)
     addr = id2address(id)
-    create_dir(addr)
+    # create_dir(addr)
+    os.makedirs(addr)
     with open(os.path.join(addr, id), 'wb') as f:
         f.write(data)
     ret = {'key': id}
@@ -159,51 +173,88 @@ def multipart_post_image():
 
 # /images/id.jpeg?w=x&h=y
 # LRU cache: private/memcache/redis
+# regex
+# @app.route('/<regex("[abcABC0-9]{4,6}"):uid>-<slug>/')
 @app.route('/images/<image_id>', methods=['GET'])
 def get_image(image_id):
-    image = image_id.split('.')
-    print(len(image))
-    if len(image) != 1 and len(image) != 2:
+    parts = image_id.split('.')
+    print(len(parts))
+    if len(parts) != 1 and len(parts) != 2:
         return 'invalid request!'
-    if len(image[0]) != 32:
+    if len(parts[0]) != 32:
         return 'invalid ID!'
-    if len(image) == 2:
-        ntype = image[1].lower()
-        if ntype not in ALLOWED_EXTENSIONS:
+
+    image_id = parts[0]
+
+    ext = ''
+    if len(parts) > 1:
+        ext = parts[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
             return 'invalid format!'
-        if ntype == 'jpg':
-            ntype = 'jpeg'
-    else:
-        ntype = ''
-    addr = id2address(image[0])
-    path = os.path.join(addr, image[0])
+        if ext == 'jpg': ext = 'jpeg'
+
+    addr = id2address(image_id)
+    path = os.path.join(addr, image_id)
     h = int(request.args.get('h') or 0)  #参数大小的限制？
     w = int(request.args.get('w') or 0)
-    cache_id = get_cache_key(image[0], w, h, ntype)
-    data = cache.get(cache_id) 
-    if data == None:
-        if not h and not w and not ntype:
-            with open(path, 'rb') as f:
-                data = f.read()
-                mtype = magic.from_buffer(data, mime=True)
+    cache_id = gen_cache_key(image_id, w, h, ext)
+    # data = cache.get(cache_id)
+    # if data is None:
+    #     if not h and not w and not ext:
+    #         with open(path, 'rb') as f:
+    #             data = f.read()
+    #         mtype = magic.from_buffer(data, mime=True)
+    #     else:
+    #         if h or w:
+    #             # im = read_blob(data)
+    #             # fmt = im.format
+    #             im = resize_image(path, w, h)
+    #             if not ext:
+    #                 ext ='webp' 
+    #         else:
+    #             im = Image.open(path)
+    #         ret = io.BytesIO()
+    #         im.save(ret, ext)
+    #         data = ret.getvalue()
+    #         mtype = 'image/' +ext 
+    #     cache.set(cache_id, data)
+    # else:
+    #     mtype = magic.from_buffer(data, mime=True)
+
+    data = None
+    if data is None:
+        with open(path, 'rb') as f:
+            data = f.read()
+        need_resize, need_save = False, False
+        if h or w or ext:
+            imgfile = io.BytesIO(data)
+            imgfile.seek(0)
+            im = Image.open(imgfile)
+            fmt = im.format
+
+            if h or w: need_resize = True
+            if need_resize or ext != fmt: need_save = True
+
+            if need_resize:
+                im = resize_image2(im, w, h)
+            if need_save:
+                if ext == '': ext = fmt
+                buf = io.BytesIO()
+                im.save(buf, ext)
+                data = buf.getvalue()
+
+            mtype = 'image/' + ext
         else:
-            if h or w:
-                im = resize_image(path, w, h)
-                if not ntype:
-                    ntype ='webp' 
-            else:
-                im = Image.open(path)
-            ret = io.BytesIO()
-            im.save(ret, ntype)
-            data = ret.getvalue()
-            mtype = 'image/' + ntype
-        cache.set(cache_id, data)
+            mtype = magic.from_buffer(data, mime=True)
+
+        # cache.set(cache_id, data)
     else:
         mtype = magic.from_buffer(data, mime=True)
+
     response = make_response(data)
     response.headers['Content-Type'] = mtype
     return response
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', debug=True)

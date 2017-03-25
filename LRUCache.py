@@ -1,8 +1,10 @@
 # -*- coding:utf-8 -*-
-from collections import OrderedDict
 import time
 
+from collections import OrderedDict
 
+
+# logging
 class LRUCache(object):
     def __init__(self, capacity=1024, TTL=24 * 60 * 60):
         self.capacity = capacity
@@ -24,13 +26,13 @@ class LRUCache(object):
         print('set cache:', key)
 
     def get(self, key):
-        if key in self.__cache:   
+        if key in self.__cache:
             value = self.__cache.pop(key)
             self.__cache[key] = value
-            print('get cache:', key)
+            print('get cache: %s len: %s' % (key, len(value)))
             return value
         else:
-            return None 
+            return None
 
     def clear(self):
         self.__cache.clear()
@@ -39,3 +41,19 @@ class LRUCache(object):
     def __delete(self, key):
         del self.__cache[key]
         del self.__expiration_time[key]
+
+
+def test():
+    cache = LRUCache()
+    k = 'foo'
+    v = 'bar'
+    cache.set(k, v)
+    vv = cache.get(k)
+    if vv != v:
+        print('value mismatch!', vv)
+    else:
+        print('pass')
+
+
+if __name__ == '__main__':
+    test()

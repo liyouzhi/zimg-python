@@ -7,7 +7,9 @@ import json
 import io
 import math
 
-from bottle import route, run, template, get, post, request, response, HTTPResponse
+from flask import Flask, render_template
+from flask import request
+from flask import send_from_directory, make_response
 from werkzeug.utils import secure_filename
 from PIL import Image
 import memcache
@@ -18,7 +20,9 @@ from LRUCache import LRUCache
 UPLOAD_FOLDER = '/Users/liyouzhi/dev/python/zimg-python/image_storage'
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif', 'webp'])
 
-# app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  #用户上传文件大小的上限
+app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  #用户上传文件大小的上限
 # cache = LRUCache() #use LRUCache
 # cache = memcache.Client(['127.0.0.1:11211'], debug = 1)
 cache = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
@@ -107,9 +111,9 @@ def gen_cache_key(id, w, h, format):
     return 'ick:v0:' + id + ':' + str(w) + ':' + str(h) + ':' + format
 
 
-@route('/')
+@app.route('/')
 def home():
-    return template('index.html')
+    return render_template('index.html')
 
 # RESTful api
 # http status code
@@ -122,9 +126,9 @@ def home():
 # PIL
 
 
-@post('/images')
+@app.route('/images', methods=['POST'])
 def post_image():
-    data = request.body.read()
+    data = request.get_data()
     if not data:
         response.status_code = 400
         return 'upload file not found!'
@@ -147,9 +151,9 @@ def post_image():
     return json.dumps(ret)
 
 
-@post('/images/multipart')
+@app.route('/images/multipart', methods=['POST'])
 def multipart_post_image():
-    file = request.files.get('file')
+    file = request.files['file']
     if not file:
         response.status_code = 400
         return 'upload file not found'
@@ -164,8 +168,13 @@ def multipart_post_image():
     ret = {'key': id}
     return json.dumps(ret)
 
+# /images/id.jpeg?w=x&h=y
+# LRU cache: private/memcache/redis
+# regex
+# @app.route('/<regex("[abcABC0-9]{4,6}"):uid>-<slug>/')
 
-@get('/images/<image_id>')
+
+@app.route('/images/<image_id>', methods=['GET'])
 def get_image(image_id):
     parts = image_id.split('.')
     print(len(parts))
@@ -185,11 +194,32 @@ def get_image(image_id):
 
     addr = id2address(image_id)
     path = os.path.join(addr, image_id)
-    h = int(request.query.h or 0)  #参数大小的限制？
-    w = int(request.query.w or 0)
-    print('w:', w)
-    print('h:', h)
+    h = int(request.args.get('h') or 0)  #参数大小的限制？
+    w = int(request.args.get('w') or 0)
     cache_id = gen_cache_key(image_id, w, h, ext)
+    # data = cache.get(cache_id)
+    # if data is None:
+    #     if not h and not w and not ext:
+    #         with open(path, 'rb') as f:
+    #             data = f.read()
+    #         mtype = magic.from_buffer(data, mime=True)
+    #     else:
+    #         if h or w:
+    #             # im = read_blob(data)
+    #             # fmt = im.format
+    #             im = resize_image(path, w, h)
+    #             if not ext:
+    #                 ext ='webp' 
+    #         else:
+    #             im = Image.open(path)
+    #         ret = io.BytesIO()
+    #         im.save(ret, ext)
+    #         data = ret.getvalue()
+    #         mtype = 'image/' +ext 
+    #     cache.set(cache_id, data)
+    # else:
+    #     mtype = magic.from_buffer(data, mime=True)
+
     data = None
     if data is None:
         with open(path, 'rb') as f:
@@ -220,10 +250,10 @@ def get_image(image_id):
     else:
         mtype = magic.from_buffer(data, mime=True)
 
-    res = HTTPResponse(body=data)
-    res.set_header('Content-Type', mtype)
-    return res
+    response = make_response(data)
+    response.headers['Content-Type'] = mtype
+    return response
 
 
 if __name__ == '__main__':
-    run(host='localhost', port=5000, reloader=True)
+    app.run(host='0.0.0.0', debug=True)

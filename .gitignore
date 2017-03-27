@@ -2,7 +2,7 @@
 image_storage/
 test_id2addr.py
 app_flask.py
-template/
+templates/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

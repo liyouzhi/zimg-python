@@ -10,13 +10,16 @@ import json
 import io
 import logging
 
-from bottle import route, run, template, get, post, request, response, HTTPResponse, abort
+from bottle import template, request, response, HTTPResponse, abort
 from PIL import Image
+import redis
 
 from img_process import *
 
 UPLOAD_FOLDER = '/Users/liyouzhi/dev/python/zimg-python/image_storage'
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif', 'webp'])
+
+cache = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
 
 
 def next_id():
@@ -43,12 +46,10 @@ def gen_cache_key(id, w, h, format):
     return 'ick:v0:' + id + ':' + str(w) + ':' + str(h) + ':' + format
 
 
-@route('/')
 def home():
     return template('index.html')
 
 
-@post('/images')
 def post_image():
     data = request.body.read()
     if not data:
@@ -70,7 +71,6 @@ def post_image():
     return json.dumps(ret)
 
 
-@post('/images/multipart')
 def multipart_post_image():
     file = request.files.get('file')
     if not file:
@@ -89,7 +89,6 @@ def multipart_post_image():
     return json.dumps(ret)
 
 
-@get('/images/<image_id>')
 def get_image(image_id):
     parts = image_id.split('.')
     if len(parts) != 1 and len(parts) != 2:
@@ -111,8 +110,8 @@ def get_image(image_id):
     h = int(request.query.h or 0)  #参数大小的限制？
     w = int(request.query.w or 0)
     cache_id = gen_cache_key(image_id, w, h, ext)
-    data = None
-    # date = cache.get(cache_id)
+    data = cache.get(cache_id)
+    # data = None
     if data is None:
         with open(path, 'rb') as f:
             data = f.read()
@@ -141,8 +140,10 @@ def get_image(image_id):
         else:
             mtype = magic.from_buffer(data, mime=True)
             logging.info('get origin image (%s)', image_id)
-
-        # cache.set(cache_id, data)
+        cache.set(cache_id, data)
+        d = cache.get(cache_id)
+        if d != None:
+            logging.info('set cache: %s', cache_id)
     else:
         logging.info('get cache: %s', cache_id)
         mtype = magic.from_buffer(data, mime=True)

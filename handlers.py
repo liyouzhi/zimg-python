@@ -9,6 +9,7 @@ import magic
 import json
 import io
 import logging
+import re
 
 from bottle import template, request, response, HTTPResponse, abort
 from PIL import Image
@@ -18,6 +19,7 @@ from img_process import *
 
 UPLOAD_FOLDER = '/Users/liyouzhi/dev/python/zimg-python/image_storage'
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif', 'webp'])
+EXPIRE_TIME = 60*15
 
 cache = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
 
@@ -88,22 +90,38 @@ def multipart_post_image():
     ret = {'key': id}
     return json.dumps(ret)
 
+RE_ID = r'^[0-9a-f]{32}$'
+RE_ID_EXT = r'^([0-9a-f]{32})\.([a-z]+)$'
 
 def get_image(image_id):
-    parts = image_id.split('.')
-    if len(parts) != 1 and len(parts) != 2:
-        abort(400, 'invalid request!')
-    if len(parts[0]) != 32:
-        abort(400, 'invalid ID!')
+    # parts = image_id.split('.')
+    # if len(parts) != 1 and len(parts) != 2:
+    #     abort(400, 'invalid request!')
+    # if len(parts[0]) != 32:
+    #     abort(400, 'invalid ID!')
+    #
+    # image_id = parts[0]
+    #
+    #     ext = ''
+    # if len(parts) > 1:
+    #     ext = parts[1].lower()
+    #     if ext not in ALLOWED_EXTENSIONS:
+    #         abort(400, 'invalid format!')
+    #     if ext == 'jpg': ext = 'jpeg'
 
-    image_id = parts[0]
-
-    ext = ''
-    if len(parts) > 1:
-        ext = parts[1].lower()
+    image_id = image_id.lower()
+    re_id = re.match(RE_ID, image_id)
+    re_id_ext = re.match(RE_ID_EXT, image_id)
+    if re_id:
+        ext = ''
+    elif re_id_ext:
+        image_id = re_id_ext.group(1)
+        ext = re_id_ext.group(2)
         if ext not in ALLOWED_EXTENSIONS:
             abort(400, 'invalid format!')
-        if ext == 'jpg': ext = 'jpeg'
+    else:
+        abort(400, 'invalid request!')
+    if ext == 'jpg': ext = 'jpeg'
 
     addr = id2address(image_id)
     path = os.path.join(addr, image_id)
@@ -141,6 +159,7 @@ def get_image(image_id):
             mtype = magic.from_buffer(data, mime=True)
             logging.info('get origin image (%s)', image_id)
         cache.set(cache_id, data)
+        cache.expire(cache_id, EXPIRE_TIME)
         d = cache.get(cache_id)
         if d != None:
             logging.info('set cache: %s', cache_id)

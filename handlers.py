@@ -44,8 +44,8 @@ def id2address(id):
     return path
 
 
-def gen_cache_key(id, w, h, format):
-    return 'ick:v0:' + id + ':' + str(w) + ':' + str(h) + ':' + format
+def gen_cache_key(id, w, h, format, s):
+    return 'ick:v0:' + id + ':' + str(w) + ':' + str(h) + ':' + format + ':' + s
 
 
 def home():
@@ -127,12 +127,16 @@ def get_image(image_id):
     path = os.path.join(addr, image_id)
     h = int(request.query.h or 0)  #参数大小的限制？
     w = int(request.query.w or 0)
-    cache_id = gen_cache_key(image_id, w, h, ext)
+
+    s = request.query.s
+
+    cache_id = gen_cache_key(image_id, w, h, ext, s)
     data = cache.get(cache_id)
     # data = None
     if data is None:
         with open(path, 'rb') as f:
             data = f.read()
+
         need_resize, need_save = False, False
         if h or w or ext:
             imgfile = io.BytesIO(data)
@@ -144,9 +148,14 @@ def get_image(image_id):
             if need_resize or ext != fmt: need_save = True
 
             if need_resize:
-                im = resize_image2(im, w, h)
-                logging.info('resize (%s) width: %s height: %s', image_id, w,
-                             h)
+                if s == 'fill':
+                    im = fill_crop(im, w, h)
+                    logging.info('fill_crop (%s) width: %s height: %s', image_id, w, h)
+                if s == 'crop':
+                    im = crop_image(im, w, h)
+                else:
+                    im = resize_image2(im, w, h)
+                    logging.info('resize (%s) width: %s height: %s', image_id, w, h)
             if need_save:
                 if ext == '': ext = fmt
                 buf = io.BytesIO()

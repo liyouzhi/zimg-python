@@ -2,7 +2,7 @@
 import math
 import logging
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 # def resize_image(addr, width, height):
 #     im = Image.open(addr)
@@ -31,8 +31,29 @@ def resize_image2(im, width, height):
     return im.resize((width, height))
 
 
-def crop_image(addr, width, height):
-    im = Image.open(addr)
+def fill_crop(im, width, height):
+    w, h = im.size
+    xf = w / h
+    yf = width / height
+    if yf > xf:
+        w = width
+        h = math.floor(w / xf)
+        image = im.resize((w, h))
+        # print('resize:%s * %s' % (w,h))
+        region = (0,(h-height)/2,w,(h+height)/2)
+        # print(region)
+    if yf < xf:
+        h = height
+        w = math.floor(h * xf)
+        image = im.resize((w, h))
+        # print('resize:%s * %s' % (w,h))
+        region = ((w-width)/2,0,(w+width)/2,h)
+        # print(region)
+    return image.crop(region)
+
+
+
+def crop_image(im, width, height):
     w, h = im.size
     region = ((w - width) / 2, (h - height) / 2, (w + width) / 2,
               (h + height) / 2)

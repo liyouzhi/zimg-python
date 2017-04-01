@@ -19,7 +19,7 @@ from PIL import Image, ImageDraw
 #
 
 
-def resize_image2(im, width, height):
+def resize_image(im, width, height):
     w, h = im.size
     f = w / h
     if width == 0:
@@ -31,26 +31,43 @@ def resize_image2(im, width, height):
     return im.resize((width, height))
 
 
-def fill_crop(im, width, height):
+def fill(im, width, height):  #gravity: center
     w, h = im.size
     xf = w / h
     yf = width / height
+    if yf == xf:
+        return im.resize((width, height))
     if yf > xf:
         w = width
         h = math.floor(w / xf)
         image = im.resize((w, h))
         # print('resize:%s * %s' % (w,h))
-        region = (0,(h-height)/2,w,(h+height)/2)
+        region = (0, (h - height) / 2, w, (h + height) / 2)
         # print(region)
     if yf < xf:
         h = height
         w = math.floor(h * xf)
         image = im.resize((w, h))
         # print('resize:%s * %s' % (w,h))
-        region = ((w-width)/2,0,(w+width)/2,h)
+        region = ((w - width) / 2, 0, (w + width) / 2, h)
         # print(region)
     return image.crop(region)
 
+
+def fit(im, width, height):
+    w, h = im.size
+    xf = w / h
+    yf = width / height
+    if yf == xf:
+        w = width
+        h = height
+    if yf < xf:
+        w = width
+        h = math.floor(w / xf)
+    if yf > xf:
+        h = height
+        w = math.floor(h * xf)
+    return im.resize((w, h))
 
 
 def crop_image(im, width, height):

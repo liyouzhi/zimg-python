@@ -19,7 +19,8 @@ from img_process import *
 
 UPLOAD_FOLDER = '/Users/liyouzhi/dev/python/zimg-python/image_storage'
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif', 'webp'])
-EXPIRE_TIME = 60*15
+EXPIRE_TIME = 60 * 15
+SETTING_OPTIONS = set(['fill', 'fit', 'stretch'])
 
 cache = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
 
@@ -45,7 +46,8 @@ def id2address(id):
 
 
 def gen_cache_key(id, w, h, format, s):
-    return 'ick:v0:' + id + ':' + str(w) + ':' + str(h) + ':' + format + ':' + s
+    return 'ick:v0:' + id + ':' + str(w) + ':' + str(
+        h) + ':' + format + ':' + s
 
 
 def home():
@@ -90,8 +92,10 @@ def multipart_post_image():
     ret = {'key': id}
     return json.dumps(ret)
 
+
 RE_ID = r'^[0-9a-f]{32}$'
 RE_ID_EXT = r'^([0-9a-f]{32})\.([a-z]+)$'
+
 
 def get_image(image_id):
     # parts = image_id.split('.')
@@ -127,8 +131,9 @@ def get_image(image_id):
     path = os.path.join(addr, image_id)
     h = int(request.query.h or 0)  #参数大小的限制？
     w = int(request.query.w or 0)
-
     s = request.query.s
+    if s and s not in SETTING_OPTIONS:
+        abort(400, 'invalid options!')
 
     cache_id = gen_cache_key(image_id, w, h, ext, s)
     data = cache.get(cache_id)
@@ -149,13 +154,21 @@ def get_image(image_id):
 
             if need_resize:
                 if s == 'fill':
-                    im = fill_crop(im, w, h)
-                    logging.info('fill_crop (%s) width: %s height: %s', image_id, w, h)
-                if s == 'crop':
-                    im = crop_image(im, w, h)
+                    if not h or not w:
+                        abort(400, 'fill option needs 2 arguments!')
+                    im = fill(im, w, h)
+                    logging.info('[fill] (%s) width: %s height: %s', image_id,
+                                 w, h)
+                if s == 'fit':
+                    if not h or not w:
+                        abort(400, 'fit option needs 2 arguments!')
+                    im = fit(im, w, h)
+                    logging.info('[fit] (%s) width: %s height: %s', image_id,
+                                 w, h)
                 else:
-                    im = resize_image2(im, w, h)
-                    logging.info('resize (%s) width: %s height: %s', image_id, w, h)
+                    im = resize_image(im, w, h)
+                    logging.info('resize (%s) width: %s height: %s', image_id,
+                                 w, h)
             if need_save:
                 if ext == '': ext = fmt
                 buf = io.BytesIO()

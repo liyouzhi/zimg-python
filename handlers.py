@@ -45,9 +45,9 @@ def id2address(id):
     return path
 
 
-def gen_cache_key(id, w, h, format, s):
+def gen_cache_key(id, w, h, format, s, a):
     return 'ick:v0:' + id + ':' + str(w) + ':' + str(
-        h) + ':' + format + ':' + s
+            h) + ':' + format + ':' + s + ':' + str(a)
 
 
 def home():
@@ -132,25 +132,29 @@ def get_image(image_id):
     h = int(request.query.h or 0)  #参数大小的限制？
     w = int(request.query.w or 0)
     s = request.query.s
+    a = int(request.query.a or 0)
     if s and s not in SETTING_OPTIONS:
         abort(400, 'invalid options!')
+    if a >= 360:
+        abort(400, 'invalid angle!')
 
-    cache_id = gen_cache_key(image_id, w, h, ext, s)
+    cache_id = gen_cache_key(image_id, w, h, ext, s, a)
     data = cache.get(cache_id)
     # data = None
     if data is None:
         with open(path, 'rb') as f:
             data = f.read()
 
-        need_resize, need_save = False, False
-        if h or w or ext:
+        need_resize, need_save, need_rotate = False, False, False
+        if h or w or a or ext:
             imgfile = io.BytesIO(data)
             imgfile.seek(0)
             im = Image.open(imgfile)
             fmt = im.format
 
+            if a: need_rotate = True
             if h or w: need_resize = True
-            if need_resize or ext != fmt: need_save = True
+            if need_resize or need_rotate or ext != fmt: need_save = True
 
             if need_resize:
                 if s == 'fill':
@@ -169,6 +173,9 @@ def get_image(image_id):
                     im = resize_image(im, w, h)
                     logging.info('resize (%s) width: %s height: %s', image_id,
                                  w, h)
+            if need_rotate:
+                im = im.rotate(a)
+                logging.info('retota (%s) angle: %s', image_id, a)
             if need_save:
                 if ext == '': ext = fmt
                 buf = io.BytesIO()

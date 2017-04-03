@@ -12,7 +12,7 @@ import logging
 import re
 
 from bottle import template, request, response, HTTPResponse, abort
-from PIL import Image
+from PIL import Image, ImageFilter
 import redis
 
 from img_process import *
@@ -45,9 +45,9 @@ def id2address(id):
     return path
 
 
-def gen_cache_key(id, w, h, format, s, a):
+def gen_cache_key(id, w, h, format, s, a, f):
     return 'ick:v0:' + id + ':' + str(w) + ':' + str(
-            h) + ':' + format + ':' + s + ':' + str(a)
+            h) + ':' + format + ':' + s + ':' + str(a) + ':' + f
 
 
 def home():
@@ -133,28 +133,30 @@ def get_image(image_id):
     w = int(request.query.w or 0)
     s = request.query.s
     a = int(request.query.a or 0)
+    c = str(request.query.c or None)
     if s and s not in SETTING_OPTIONS:
         abort(400, 'invalid options!')
     if a >= 360:
         abort(400, 'invalid angle!')
-
-    cache_id = gen_cache_key(image_id, w, h, ext, s, a)
+    
+    cache_id = gen_cache_key(image_id, w, h, ext, s, a, c)
     data = cache.get(cache_id)
     # data = None
     if data is None:
         with open(path, 'rb') as f:
             data = f.read()
 
-        need_resize, need_save, need_rotate = False, False, False
-        if h or w or a or ext:
+        need_resize, need_save, need_rotate, need_filter = False, False, False, False
+        if h or w or a or c or ext:
             imgfile = io.BytesIO(data)
             imgfile.seek(0)
             im = Image.open(imgfile)
             fmt = im.format
 
             if a: need_rotate = True
+            if c: need_filter = True
             if h or w: need_resize = True
-            if need_resize or need_rotate or ext != fmt: need_save = True
+            if need_resize or need_rotate or need_filter or ext != fmt: need_save = True
 
             if need_resize:
                 if s == 'fill':
@@ -175,7 +177,19 @@ def get_image(image_id):
                                  w, h)
             if need_rotate:
                 im = im.rotate(a)
-                logging.info('retota (%s) angle: %s', image_id, a)
+                logging.info('rotate (%s) angle: %s', image_id, a)
+
+
+            if need_filter:
+                if c == 'b':
+                    im = im.convert('1')
+                    logging.info('covert (%s) to black', image_id)
+                if c == 'BL':
+                    im = im.filter(ImageFilter.BLUR)
+                    logging.info('filter (%s) with BLUR ', image_id)
+                else:
+                    abort(400, 'invalid filter!')
+
             if need_save:
                 if ext == '': ext = fmt
                 buf = io.BytesIO()

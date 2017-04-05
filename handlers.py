@@ -45,9 +45,9 @@ def id2address(id):
     return path
 
 
-def gen_cache_key(id, w, h, format, s, a, filter, ratio):
+def gen_cache_key(id, w, h, format, s, a, filter, ratio, quality):
     return 'ick:v0:' + id + ':' + str(w) + ':' + str(
-            h) + ':' + format + ':' + s + ':' + str(a) + ':' + filter + ':' + str(ratio)
+            h) + ':' + format + ':' + s + ':' + str(a) + ':' + filter + ':' + str(ratio) + ':' + quality
 
 
 def home():
@@ -135,14 +135,17 @@ def get_image(image_id):
     a = int(request.query.a or 0)
     filter = request.query.f 
     ratio = request.query.r
+    quality = request.query.q
     if s and s not in SETTING_OPTIONS:
         abort(400, 'invalid options!')
     if a >= 360:
         abort(400, 'invalid angle!')
     if ratio and (int(ratio) > 100 or int(ratio) < 0):
         abort(400, 'invalid ratio!')
-    
-    cache_id = gen_cache_key(image_id, w, h, ext, s, a, filter, ratio)
+    if quality and (int(quality) > 100 or int(quality) < 0):
+        abort(400, 'invalid quality!')
+
+    cache_id = gen_cache_key(image_id, w, h, ext, s, a, filter, ratio, quality)
     data = cache.get(cache_id)
     # data = None
     if data is None:
@@ -150,7 +153,7 @@ def get_image(image_id):
             data = f.read()
 
         need_resize, need_save, need_rotate, need_filter, need_reduce = False, False, False, False, False
-        if h or w or ratio or a or filter or ext:
+        if h or w or ratio or a or filter or ext or quality:
             imgfile = io.BytesIO(data)
             imgfile.seek(0)
             im = Image.open(imgfile)
@@ -162,7 +165,7 @@ def get_image(image_id):
             if ratio: 
                 ratio = int(ratio)
                 need_reduce = True
-            if need_resize or need_rotate or need_filter or ext != fmt: need_save = True
+            if need_resize or need_rotate or need_filter or ext != fmt or quality: need_save = True
 
             if need_resize and need_reduce:
                 abort(400, "invalid request! can't reduce and resize a image in the same time!")
@@ -207,9 +210,13 @@ def get_image(image_id):
             if need_save:
                 if ext == '': ext = fmt
                 buf = io.BytesIO()
-                im.save(buf, ext)
+                if quality:
+                    im.save(buf,ext,quality=int(quality))
+                    logging.info('save (%s) as %s, quality:%s', image_id, ext, quality)
+                else:
+                    im.save(buf, ext)
+                    logging.info('save (%s) as %s', image_id, ext)
                 data = buf.getvalue()
-                logging.info('save (%s) as %s', image_id, ext)
 
             mtype = 'image/' + ext
         else:

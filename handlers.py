@@ -133,21 +133,13 @@ def get_image(image_id):
     w = int(request.query.w or 0)
     s = request.query.s
     a = int(request.query.a or 0)
-<<<<<<< HEAD
     filter = request.query.f 
-=======
-    c = str(request.query.c or None)
->>>>>>> origin/master
     if s and s not in SETTING_OPTIONS:
         abort(400, 'invalid options!')
     if a >= 360:
         abort(400, 'invalid angle!')
     
-<<<<<<< HEAD
     cache_id = gen_cache_key(image_id, w, h, ext, s, a, filter)
-=======
-    cache_id = gen_cache_key(image_id, w, h, ext, s, a, c)
->>>>>>> origin/master
     data = cache.get(cache_id)
     # data = None
     if data is None:
@@ -155,22 +147,14 @@ def get_image(image_id):
             data = f.read()
 
         need_resize, need_save, need_rotate, need_filter = False, False, False, False
-<<<<<<< HEAD
         if h or w or a or filter or ext:
-=======
-        if h or w or a or c or ext:
->>>>>>> origin/master
             imgfile = io.BytesIO(data)
             imgfile.seek(0)
             im = Image.open(imgfile)
             fmt = im.format
 
             if a: need_rotate = True
-<<<<<<< HEAD
             if filter: need_filter = True
-=======
-            if c: need_filter = True
->>>>>>> origin/master
             if h or w: need_resize = True
             if need_resize or need_rotate or need_filter or ext != fmt: need_save = True
 
@@ -197,17 +181,10 @@ def get_image(image_id):
 
 
             if need_filter:
-<<<<<<< HEAD
                 if filter == 'b':
                     im = im.convert('1')
                     logging.info('covert (%s) to black', image_id)
                 elif filter == 'bl':
-=======
-                if c == 'b':
-                    im = im.convert('1')
-                    logging.info('covert (%s) to black', image_id)
-                if c == 'BL':
->>>>>>> origin/master
                     im = im.filter(ImageFilter.BLUR)
                     logging.info('filter (%s) with BLUR ', image_id)
                 else:

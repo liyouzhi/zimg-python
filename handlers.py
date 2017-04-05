@@ -45,9 +45,9 @@ def id2address(id):
     return path
 
 
-def gen_cache_key(id, w, h, format, s, a, f):
+def gen_cache_key(id, w, h, format, s, a, filter, ratio):
     return 'ick:v0:' + id + ':' + str(w) + ':' + str(
-            h) + ':' + format + ':' + s + ':' + str(a) + ':' + f
+            h) + ':' + format + ':' + s + ':' + str(a) + ':' + filter + ':' + str(ratio)
 
 
 def home():
@@ -134,20 +134,23 @@ def get_image(image_id):
     s = request.query.s
     a = int(request.query.a or 0)
     filter = request.query.f 
+    ratio = request.query.r
     if s and s not in SETTING_OPTIONS:
         abort(400, 'invalid options!')
     if a >= 360:
         abort(400, 'invalid angle!')
+    if ratio and (int(ratio) > 100 or int(ratio) < 0):
+        abort(400, 'invalid ratio!')
     
-    cache_id = gen_cache_key(image_id, w, h, ext, s, a, filter)
+    cache_id = gen_cache_key(image_id, w, h, ext, s, a, filter, ratio)
     data = cache.get(cache_id)
     # data = None
     if data is None:
         with open(path, 'rb') as f:
             data = f.read()
 
-        need_resize, need_save, need_rotate, need_filter = False, False, False, False
-        if h or w or a or filter or ext:
+        need_resize, need_save, need_rotate, need_filter, need_reduce = False, False, False, False, False
+        if h or w or ratio or a or filter or ext:
             imgfile = io.BytesIO(data)
             imgfile.seek(0)
             im = Image.open(imgfile)
@@ -156,7 +159,13 @@ def get_image(image_id):
             if a: need_rotate = True
             if filter: need_filter = True
             if h or w: need_resize = True
+            if ratio: 
+                ratio = int(ratio)
+                need_reduce = True
             if need_resize or need_rotate or need_filter or ext != fmt: need_save = True
+
+            if need_resize and need_reduce:
+                abort(400, "invalid request! can't reduce and resize a image in the same time!")
 
             if need_resize:
                 if s == 'fill':
@@ -175,6 +184,11 @@ def get_image(image_id):
                     im = resize_image(im, w, h)
                     logging.info('resize (%s) width: %s height: %s', image_id,
                                  w, h)
+
+            if need_reduce:
+                im = reduce_image(im, ratio)
+                logging.info('reduce (%s) in %d%% ', image_id, ratio)
+
             if need_rotate:
                 im = im.rotate(a)
                 logging.info('rotate (%s) angle: %s', image_id, a)

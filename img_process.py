@@ -76,6 +76,11 @@ def crop_image(im, width, height):
               (h + height) / 2)
     return im.crop(region)
 
+def reduce_image(im, ratio):
+    w, h = im.size
+    w = math.floor(ratio / 100 * w)
+    h = math.floor(ratio / 100 * h)
+    return im.resize((w,h))
 # def transfer_format(im_data, im_format):
 #     im = Image.open(io.BytesIO(im_data))
 #     ret = io.BytesIO()

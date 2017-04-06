@@ -45,10 +45,14 @@ def id2address(id):
     return path
 
 
-def gen_cache_key(id, w, h, format, s, a, filter, ratio, quality):
+def gen_cache_key(id, w=0, h=0, format='', s='', a=0, filter='', ratio='', quality=''):
     return 'ick:v0:' + id + ':' + str(w) + ':' + str(
             h) + ':' + format + ':' + s + ':' + str(a) + ':' + filter + ':' + str(ratio) + ':' + quality
 
+# def get_cache(cache_id):
+#     parts = cache_id.split(':')
+#     data = cache.get(cache_id)
+#     if data
 
 def home():
     return template('index.html')
@@ -149,8 +153,13 @@ def get_image(image_id):
     data = cache.get(cache_id)
     # data = None
     if data is None:
-        with open(path, 'rb') as f:
-            data = f.read()
+        data = cache.get(gen_cache_key(image_id))
+        if data is None:
+            with open(path, 'rb') as f:
+                data = f.read()
+            logging.info('open image in file: %s', image_id)
+        else:
+            logging.info('get origin cache: %s',gen_cache_key(image_id))
 
         need_resize, need_save, need_rotate, need_filter, need_reduce = False, False, False, False, False
         if h or w or ratio or a or filter or ext or quality:

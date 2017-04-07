@@ -82,11 +82,9 @@ def post_image():
 def multipart_post_image():
     file = request.files.get('file')
     if not file:
-        response.status_code = 400
-        return 'upload file not found'
+        abort(400, 'upload file not found!')
     if not allowed_file(file.filename):
-        response.status_code = 400
-        return 'upload file illegal'
+        abort(400, 'upload file illegal!')
     id = next_id()
     addr = id2address(id)
     os.makedirs(addr)

@@ -111,6 +111,8 @@ def watermark_image(im, watermark_im ,position):
         x = (im.size[0] - watermark_im.size[0])/2
         y = (im.size[1] - watermark_im.size[1])/2
     
+    x = math.floor(x)
+    y = math.floor(y)
     layer = Image.new('RGBA', im.size)
     layer.paste(watermark_im, (x,y))
     return Image.composite(layer, im, layer)

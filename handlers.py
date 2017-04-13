@@ -22,7 +22,7 @@ ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif', 'webp'])
 EXPIRE_TIME = 60 * 15
 SETTING_OPTIONS = set(['fill', 'fit', 'stretch'])
 POSITIONS = set(['centre', 'left_top', 'left_bottom', 'right_top', 'right_bottom'])
-WATER_MARK_DEFAULT = '/Users/liyouzhi/Pictures/watermark.png'
+WATER_MARK_DEFAULT = '/Users/liyouzhi/dev/python/zimg-python/static/watermark.png'
 
 cache = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
 
@@ -154,7 +154,7 @@ def get_image(image_id):
     if watermark:
         if not position:
             position = 'right_bottom'
-        elif positon not in POSITIONS:
+        elif position not in POSITIONS:
             abort(400, 'invalid position! valid positions:[centre, left_top, left_bottom, right_top, right_bottom]')
 
     cache_id = gen_cache_key(image_id, w, h, ext, s, a, filter, ratio, quality, watermark, position)

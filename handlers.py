@@ -21,6 +21,8 @@ UPLOAD_FOLDER = '/Users/liyouzhi/dev/python/zimg-python/image_storage'
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'jpeg', 'gif', 'webp'])
 EXPIRE_TIME = 60 * 15
 SETTING_OPTIONS = set(['fill', 'fit', 'stretch'])
+POSITIONS = set(['centre', 'left_top', 'left_bottom', 'right_top', 'right_bottom'])
+WATER_MARK_DEFAULT = '/Users/liyouzhi/Pictures/watermark.png'
 
 cache = redis.StrictRedis(host='127.0.0.1', port=6379, db=1)
 
@@ -45,9 +47,9 @@ def id2address(id):
     return path
 
 
-def gen_cache_key(id, w=0, h=0, format='', s='', a=0, filter='', ratio='', quality=''):
+def gen_cache_key(id, w=0, h=0, format='', s='', a=0, filter='', ratio='', quality='', watermark=0, position=''):
     return 'ick:v0:' + id + ':' + str(w) + ':' + str(
-            h) + ':' + format + ':' + s + ':' + str(a) + ':' + filter + ':' + str(ratio) + ':' + quality
+            h) + ':' + format + ':' + s + ':' + str(a) + ':' + filter + ':' + str(ratio) + ':' + quality + ':' + str(watermark) + ':' + position
 
 # def get_cache(cache_id):
 #     parts = cache_id.split(':')
@@ -138,6 +140,9 @@ def get_image(image_id):
     filter = request.query.f 
     ratio = request.query.r
     quality = request.query.q
+    watermark = int(request.query.watermark or 0)
+    position = request.query.p
+
     if s and s not in SETTING_OPTIONS:
         abort(400, 'invalid options!')
     if a >= 360:
@@ -146,8 +151,13 @@ def get_image(image_id):
         abort(400, 'invalid ratio!')
     if quality and (int(quality) > 100 or int(quality) < 0):
         abort(400, 'invalid quality!')
+    if watermark:
+        if not position:
+            position = 'right_bottom'
+        elif positon not in POSITIONS:
+            abort(400, 'invalid position! valid positions:[centre, left_top, left_bottom, right_top, right_bottom]')
 
-    cache_id = gen_cache_key(image_id, w, h, ext, s, a, filter, ratio, quality)
+    cache_id = gen_cache_key(image_id, w, h, ext, s, a, filter, ratio, quality, watermark, position)
     data = cache.get(cache_id)
     # data = None
     if data is None:
@@ -159,7 +169,7 @@ def get_image(image_id):
         else:
             logging.info('get origin cache: %s',gen_cache_key(image_id))
 
-        need_resize, need_save, need_rotate, need_filter, need_reduce = False, False, False, False, False
+        need_resize, need_save, need_rotate, need_filter, need_reduce, need_watermark = False, False, False, False, False, False
         if h or w or ratio or a or filter or ext or quality:
             imgfile = io.BytesIO(data)
             imgfile.seek(0)
@@ -172,7 +182,8 @@ def get_image(image_id):
             if ratio: 
                 ratio = int(ratio)
                 need_reduce = True
-            if need_resize or need_rotate or need_filter or ext != fmt or quality: need_save = True
+            if watermark: need_watermark=True
+            if need_resize or need_rotate or need_filter or ext != fmt or quality or need_watermark: need_save = True
 
             if need_resize and need_reduce:
                 abort(400, "invalid request! can't reduce and resize a image in the same time!")
@@ -213,6 +224,11 @@ def get_image(image_id):
                     logging.info('filter (%s) with BLUR ', image_id)
                 else:
                     abort(400, 'invalid filter!')
+
+            if need_watermark:
+                watermark_im = Image.open(WATER_MARK_DEFAULT)
+                im = watermark_image(im, watermark_im, position)
+                logging.info('default watermark (%s)', image_id)
 
             if need_save:
                 if ext == '': ext = fmt

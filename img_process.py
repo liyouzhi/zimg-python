@@ -81,6 +81,7 @@ def reduce_image(im, ratio):
     w = math.floor(ratio / 100 * w)
     h = math.floor(ratio / 100 * h)
     return im.resize((w,h))
+
 # def transfer_format(im_data, im_format):
 #     im = Image.open(io.BytesIO(im_data))
 #     ret = io.BytesIO()
@@ -91,3 +92,27 @@ def reduce_image(im, ratio):
 #     ret = io.BytesIO()
 #     im.save(ret, im_format)
 #     return ret.getvalue()
+
+def watermark_image(im, watermark_im ,position):
+    
+    if position == 'left_top':
+        x = 0
+        y = 0
+    elif position == 'left_bottom':
+        x = 0
+        y = im.size[1] - watermark_im.size[1]
+    elif position == 'right_top':
+        x = im.size[0] - watermark_im.size[0]
+        y = 0
+    elif position == 'right_bottom':
+        x = im.size[0] - watermark_im.size[0]
+        y = im.size[1] - watermark_im.size[1]
+    else:
+        x = (im.size[0] - watermark_im.size[0])/2
+        y = (im.size[1] - watermark_im.size[1])/2
+    
+    layer = Image.new('RGBA', im.size)
+    layer.paste(watermark_im, (x,y))
+    return Image.composite(layer, im, layer)
+
+# def watermark_str():

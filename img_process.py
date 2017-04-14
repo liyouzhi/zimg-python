@@ -2,7 +2,7 @@
 import math
 import logging
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 # def resize_image(addr, width, height):
 #     im = Image.open(addr)
@@ -92,6 +92,27 @@ def reduce_image(im, ratio):
 #     ret = io.BytesIO()
 #     im.save(ret, im_format)
 #     return ret.getvalue()
+def text2watermark(text):
+    font_size = 24
+    # font_color=(176,173,173,100)
+    font_color=(255,255,255,100)
+    font = ImageFont.truetype('/System/Library/Fonts/PingFang.ttc', font_size,encoding="unic",index=4)
+    text = text.split('\\n')
+    print('after:',text)
+    mark_width = 0
+    n = len(text)
+    for i in range(n):
+        (width, height) = font.getsize(text[i])
+        if mark_width < width: mark_width = width
+    mark_height = height * n
+
+    mark = Image.new('RGBA',(mark_width,mark_height))
+    draw = ImageDraw.ImageDraw(mark, 'RGBA')
+    for i in range(n):
+        draw.text((0,i*height),text[i],font=font,fill=font_color)
+    # mark = mark.filter(ImageFilter.EDGE_ENHANCE)
+    mark = mark.filter(ImageFilter.EDGE_ENHANCE_MORE)
+    return mark
 
 def watermark_image(im, watermark_im ,position):
     

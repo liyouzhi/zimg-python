@@ -229,7 +229,8 @@ def get_image(image_id):
             if need_watermark:
                 if watermark_text:
                     print('watermark_text:',watermark_text)
-                    watermark_im = text2watermark(watermark_text)
+                    # watermark_im = text2watermark(watermark_text)
+                    watermark_im = text2watermark2(watermark_text)
                     logging.info('defined watermark (%s)', image_id)
                 else:
                     watermark_im = Image.open(WATER_MARK_DEFAULT)

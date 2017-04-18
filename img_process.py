@@ -114,6 +114,37 @@ def text2watermark(text):
     mark = mark.filter(ImageFilter.EDGE_ENHANCE_MORE)
     return mark
 
+def text2watermark2(text):
+    font_size = 24
+    # font_color=(176,173,173,100)
+    font_color=(255,255,255,100)
+    font = ImageFont.truetype('/System/Library/Fonts/PingFang.ttc', font_size,encoding="unic",index=4)
+    text = text.split('\\n')
+    print('after:',text)
+    mark_width = 0
+    n = len(text)
+    for i in range(n):
+        (width, height) = font.getsize(text[i])
+        if mark_width < width: mark_width = width
+    mark_height = height * n
+
+    mark = Image.new('RGBA',(mark_width,mark_height))
+    draw = ImageDraw.ImageDraw(mark, 'RGBA')
+    for i in range(n):
+        draw.text((0,i*height),text[i],font=font,fill=font_color)
+
+    font_color2=(0,0,0,50)
+    shadow = Image.new('RGBA',(mark_width,mark_height))
+    draw = ImageDraw.ImageDraw(shadow, 'RGBA')
+    for i in range(n):
+        draw.text((1,i*height),text[i],font=font,fill=font_color2)
+
+    mark = Image.alpha_composite(mark, shadow)
+
+    # mark = mark.filter(ImageFilter.EDGE_ENHANCE)
+    mark = mark.filter(ImageFilter.EDGE_ENHANCE_MORE)
+    return mark
+
 def watermark_image(im, watermark_im ,position):
     
     if position == 'left_top':

@@ -56,6 +56,11 @@ def gen_cache_key(id, w=0, h=0, format='', s='', a=0, filter='', ratio='', quali
 #     data = cache.get(cache_id)
 #     if data
 
+def get_image_size(path):
+    img = Image.open(path)
+    return img.size
+
+
 def home():
     return template('index.html')
 
@@ -74,10 +79,12 @@ def post_image():
     addr = id2address(id)
     # create_dir(addr)
     os.makedirs(addr)
-    with open(os.path.join(addr, id), 'wb') as f:
+    path = os.path.join(addr, id)
+    with open(path, 'wb') as f:
         f.write(data)
     logging.info('upload image "%s" to "%s"', id, addr)
-    ret = {'key': id}
+    size = get_image_size(path)
+    ret = {'key': id, 'size': size}
     return json.dumps(ret)
 
 
@@ -91,9 +98,11 @@ def multipart_post_image():
     addr = id2address(id)
     os.makedirs(addr)
     # create_dir(addr)
-    file.save(os.path.join(addr, id))
+    path = os.path.join(addr, id)
+    file.save(path)
     logging.info('upload image "%s" to "%s"', id, addr)
-    ret = {'key': id}
+    size = get_image_size(path)
+    ret = {'key': id, 'size': size}
     return json.dumps(ret)
 
 
